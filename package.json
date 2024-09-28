@@ -4,5 +4,8 @@
     "matter-js": "^0.20.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13"
+  },
+  "devDependencies": {
+    "vite": "^5.4.8"
   }
 }
