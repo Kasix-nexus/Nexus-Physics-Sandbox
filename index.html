@@ -4,19 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nexus Physics Sandbox</title>
-  <!-- Подключение шрифта Roboto -->
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  
   <script type="module" src="/src/main.js"></script>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body class="font-roboto">
   <canvas id="canvas"></canvas>
-  <div class="control-panel">
+  
+  <button id="toggle-panel" class="toggle-button">
+    <span class="material-symbols-outlined">menu</span>
+  </button>
+
+  <div class="control-panel" id="control-panel">
     <button class="button" id="add-square">Add Square</button>
     <button class="button" id="add-circle">Add Circle</button>
     <button class="button" id="add-triangle">Add Triangle</button>
+    <button class="button" id="toggle-simulation">Pause</button>
   </div>
 </body>
 </html>
