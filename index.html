@@ -11,21 +11,33 @@
   
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
   
-  <script type="module" src="/src/main.js"></script>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body class="font-roboto">
+  <!-- Основной canvas для Matter.js -->
   <canvas id="canvas"></canvas>
   
-  <button id="toggle-panel" class="toggle-button">
-    <span class="material-symbols-outlined">menu</span>
-  </button>
+  <!-- Overlay canvas для рисования -->
+  <canvas id="overlay-canvas"></canvas>
+  
+  <!-- Кнопка Toggle Panel -->
+  <div class="toggle-button-wrapper">
+    <button id="toggle-panel" class="toggle-button">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+  </div>
 
+  <!-- Панель управления -->
   <div class="control-panel" id="control-panel">
     <button class="button" id="add-square">Add Square</button>
+    <!-- Убрана кнопка Add Rectangle -->
     <button class="button" id="add-circle">Add Circle</button>
     <button class="button" id="add-triangle">Add Triangle</button>
+    <button class="button" id="draw-rectangle">Draw Rectangle</button>
     <button class="button" id="toggle-simulation">Pause</button>
   </div>
+  
+  <!-- Подключаем Matter.js как модуль -->
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
