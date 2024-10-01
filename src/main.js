@@ -1,3 +1,5 @@
+// main.js
+
 import { Engine, Render, Runner, Bodies, World, Mouse, MouseConstraint } from 'matter-js';
 
 // Создание engine и world
@@ -83,7 +85,6 @@ window.addEventListener('resize', () => {
   boundaries = createBoundaries();
   World.add(world, boundaries);
 });
-
 
 // Добавление контроля мыши
 const mouse = Mouse.create(render.canvas);
@@ -240,7 +241,6 @@ function handleTouchMove(event) {
   overlayContext.stroke();
 }
 
-
 // Функция обработки отпускания мыши
 function handleMouseUp(event) {
   if (!isDrawingRectangle) return;
@@ -320,15 +320,18 @@ function handleTouchEnd(event) {
 // Переключение паузы симуляции
 let isPaused = false;
 const toggleSimulationButton = document.getElementById('toggle-simulation');
+const toggleIcon = document.getElementById('toggle-icon');
 
 toggleSimulationButton.addEventListener('click', () => {
   isPaused = !isPaused;
   if (isPaused) {
     Runner.stop(runner);
-    toggleSimulationButton.textContent = 'Resume';
+    toggleIcon.textContent = 'play_arrow'; // Иконка для Resume
+    toggleSimulationButton.title = 'Resume';
   } else {
     Runner.run(runner, engine);
-    toggleSimulationButton.textContent = 'Pause';
+    toggleIcon.textContent = 'pause'; // Иконка для Pause
+    toggleSimulationButton.title = 'Pause';
   }
 });
 

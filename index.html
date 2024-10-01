@@ -28,13 +28,22 @@
   </div>
 
   <!-- Панель управления -->
-  <div class="control-panel" id="control-panel">
-    <button class="button" id="add-square">Add Square</button>
-    <!-- Убрана кнопка Add Rectangle -->
-    <button class="button" id="add-circle">Add Circle</button>
-    <button class="button" id="add-triangle">Add Triangle</button>
-    <button class="button" id="draw-rectangle">Draw Rectangle</button>
-    <button class="button" id="toggle-simulation">Pause</button>
+  <div class="control-panel hidden" id="control-panel">
+    <button class="button" id="add-square" title="Add Square">
+      <span class="material-symbols-outlined">square</span>
+    </button>
+    <button class="button" id="draw-rectangle" title="Draw Rectangle">
+      <span class="material-symbols-outlined">rectangle</span>
+    </button>
+    <button class="button" id="add-circle" title="Add Circle">
+      <span class="material-symbols-outlined">circle</span>
+    </button>
+    <button class="button" id="add-triangle" title="Add Triangle">
+      <span class="material-symbols-outlined">add_triangle</span> <!-- Используем change_history для треугольника -->
+    </button>
+    <button class="button" id="toggle-simulation" title="Pause">
+      <span class="material-symbols-outlined" id="toggle-icon">pause</span>
+    </button>
   </div>
   
   <!-- Подключаем Matter.js как модуль -->
