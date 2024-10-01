@@ -84,6 +84,7 @@ window.addEventListener('resize', () => {
   World.add(world, boundaries);
 });
 
+
 // Добавление контроля мыши
 const mouse = Mouse.create(render.canvas);
 const mouseConstraint = MouseConstraint.create(engine, {
@@ -158,6 +159,10 @@ let startX = 0;
 let startY = 0;
 const overlayContext = overlayCanvas.getContext('2d');
 
+// Переменные для хранения последних координат касания
+let lastTouchX = 0;
+let lastTouchY = 0;
+
 // Функция обработки нажатия мыши
 function handleMouseDown(event) {
   if (!isDrawingRectangle) return;
@@ -169,7 +174,6 @@ function handleMouseDown(event) {
   overlayCanvas.addEventListener('mousemove', handleMouseMove);
   overlayCanvas.addEventListener('mouseup', handleMouseUp);
 }
-
 
 // Функция обработки начала касания
 function handleTouchStart(event) {
@@ -184,7 +188,6 @@ function handleTouchStart(event) {
   overlayCanvas.addEventListener('touchmove', handleTouchMove);
   overlayCanvas.addEventListener('touchend', handleTouchEnd);
 }
-
 
 // Функция обработки движения мыши
 function handleMouseMove(event) {
@@ -219,6 +222,10 @@ function handleTouchMove(event) {
   const currentX = touch.clientX - rect.left;
   const currentY = touch.clientY - rect.top;
 
+  // Сохраняем последние координаты касания
+  lastTouchX = currentX;
+  lastTouchY = currentY;
+
   const width = currentX - startX;
   const height = currentY - startY;
 
@@ -232,6 +239,7 @@ function handleTouchMove(event) {
   overlayContext.lineWidth = 2;
   overlayContext.stroke();
 }
+
 
 // Функция обработки отпускания мыши
 function handleMouseUp(event) {
@@ -271,28 +279,24 @@ function handleMouseUp(event) {
   canvas.style.pointerEvents = 'auto';
 }
 
-
 // Функция обработки отпускания касания
 function handleTouchEnd(event) {
   if (!isDrawingRectangle) return;
 
-  // Получить конечные координаты из touchend (может быть пусто, поэтому использовать touchstart ранее)
-  const rect = overlayCanvas.getBoundingClientRect();
-  const endX = startX; // Поскольку touchend не содержит координаты, можно использовать текущее положение
-  const endY = startY;
+  // Используем сохраненные последние координаты касания
+  const endX = lastTouchX;
+  const endY = lastTouchY;
 
-  // Вычислить ширину и высоту по последнему touchmove
-  // Для упрощения можно сохранить последнюю позицию в handleTouchMove
-  // Но здесь будем использовать текущую ширину и высоту
+  const width = endX - startX;
+  const height = endY - startY;
 
-  // Предположим, что handleTouchMove уже обновил ширину и высоту
-
-  // Здесь лучше хранить последние координаты
-  // Для простоты оставим как есть
+  const centerX = startX + width / 2;
+  const centerY = startY + height / 2;
 
   // Минимальный размер прямоугольника
-  if (Math.abs(endX - startX) >= 20 && Math.abs(endY - startY) >= 20) {
-    addShape('rectangle', startX, startY, Math.abs(endX - startX), Math.abs(endY - startY));
+  if (Math.abs(width) >= 20 && Math.abs(height) >= 20) {
+    // Добавление прямоугольника в мир
+    addShape('rectangle', centerX, centerY, Math.abs(width), Math.abs(height));
   }
 
   // Очистка overlayCanvas
