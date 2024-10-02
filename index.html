@@ -14,37 +14,40 @@
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body class="font-roboto">
+  <!-- Контейнер для панели управления и кнопки menu -->
+  <div class="control-container">
+    <!-- Панель управления -->
+    <div class="control-panel hidden" id="control-panel">
+      <button class="button" id="add-square" title="Add Square">
+        <span class="material-symbols-outlined">square</span>
+      </button>
+      <button class="button" id="draw-rectangle" title="Draw Rectangle">
+        <span class="material-symbols-outlined">rectangle</span>
+      </button>
+      <button class="button" id="add-circle" title="Add Circle">
+        <span class="material-symbols-outlined">circle</span>
+      </button>
+      <button class="button" id="add-triangle" title="Add Triangle">
+        <span class="material-symbols-outlined">add_triangle</span> <!-- Используем change_history для треугольника -->
+      </button>
+      <button class="button" id="toggle-simulation" title="Pause">
+        <span class="material-symbols-outlined" id="toggle-icon">pause</span>
+      </button>
+    </div>
+    
+    <!-- Кнопка Toggle Panel -->
+    <div class="toggle-button-wrapper">
+      <button id="toggle-panel" class="toggle-button">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Основной canvas для Matter.js -->
   <canvas id="canvas"></canvas>
   
   <!-- Overlay canvas для рисования -->
   <canvas id="overlay-canvas"></canvas>
-  
-  <!-- Кнопка Toggle Panel -->
-  <div class="toggle-button-wrapper">
-    <button id="toggle-panel" class="toggle-button">
-      <span class="material-symbols-outlined">menu</span>
-    </button>
-  </div>
-
-  <!-- Панель управления -->
-  <div class="control-panel hidden" id="control-panel">
-    <button class="button" id="add-square" title="Add Square">
-      <span class="material-symbols-outlined">square</span>
-    </button>
-    <button class="button" id="draw-rectangle" title="Draw Rectangle">
-      <span class="material-symbols-outlined">rectangle</span>
-    </button>
-    <button class="button" id="add-circle" title="Add Circle">
-      <span class="material-symbols-outlined">circle</span>
-    </button>
-    <button class="button" id="add-triangle" title="Add Triangle">
-      <span class="material-symbols-outlined">add_triangle</span> <!-- Используем change_history для треугольника -->
-    </button>
-    <button class="button" id="toggle-simulation" title="Pause">
-      <span class="material-symbols-outlined" id="toggle-icon">pause</span>
-    </button>
-  </div>
   
   <!-- Подключаем Matter.js как модуль -->
   <script type="module" src="/src/main.js"></script>
