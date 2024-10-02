@@ -6,6 +6,10 @@ import { Engine, Render, Runner, Bodies, World, Mouse, MouseConstraint } from 'm
 const engine = Engine.create();
 const { world } = engine;
 
+// Улучшение точности физики
+engine.positionIterations = 8;
+engine.velocityIterations = 6;
+
 // Получение элементов canvas
 const canvas = document.getElementById('canvas');
 const overlayCanvas = document.getElementById('overlay-canvas');
@@ -39,31 +43,26 @@ Runner.run(runner, engine);
 
 // Функция для создания границ
 const createBoundaries = () => {
-  const thickness = 50;
+  const thickness = 10; // Уменьшаем толщину границ для большей точности
   const width = canvas.width;
   const height = canvas.height;
 
+  const options = {
+    isStatic: true,
+    restitution: 0.8, // Умеренная упругость для границ
+    friction: 0.1,    // Немного трения для реалистичных столкновений
+    render: { visible: false },
+  };
+
   return [
     // Верхняя граница
-    Bodies.rectangle(width / 2, -thickness / 2, width, thickness, {
-      isStatic: true,
-      render: { visible: false },
-    }),
+    Bodies.rectangle(width / 2, thickness / 2, width, thickness, options),
     // Нижняя граница
-    Bodies.rectangle(width / 2, height + thickness / 2, width, thickness, {
-      isStatic: true,
-      render: { visible: false },
-    }),
+    Bodies.rectangle(width / 2, height - thickness / 2, width, thickness, options),
     // Левая граница
-    Bodies.rectangle(-thickness / 2, height / 2, thickness, height, {
-      isStatic: true,
-      render: { visible: false },
-    }),
+    Bodies.rectangle(thickness / 2, height / 2, thickness, height, options),
     // Правая граница
-    Bodies.rectangle(width + thickness / 2, height / 2, thickness, height, {
-      isStatic: true,
-      render: { visible: false },
-    }),
+    Bodies.rectangle(width - thickness / 2, height / 2, thickness, height, options),
   ];
 };
 
@@ -103,13 +102,26 @@ const getRandomColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
+// Ограничение на максимальное количество тел в мире
+const MAX_BODIES = 200;
+
 // Функция для добавления фигур
 function addShape(type, x = null, y = null, width = null, height = null) {
+  // Проверка на максимальное количество тел
+  if (world.bodies.length >= MAX_BODIES) {
+    // Удаляем самые старые тела, кроме границ и мышиного контрола
+    const bodiesToRemove = world.bodies.filter(body => !body.isStatic).slice(0, world.bodies.length - MAX_BODIES + 1);
+    World.remove(world, bodiesToRemove);
+  }
+
   if (x === null) x = Math.random() * canvas.width;
   if (y === null) y = Math.random() * (canvas.height / 2);
 
   let shape;
   const options = {
+    restitution: 0.4, // Умеренная упругость для фигур
+    friction: 0.3,    // Реалистичное трение
+    frictionAir: 0.02, // Немного воздушного трения для плавного движения
     render: {
       fillStyle: getRandomColor(),
     },
