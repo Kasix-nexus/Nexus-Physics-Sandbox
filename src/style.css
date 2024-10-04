@@ -37,12 +37,12 @@ body {
   transform: translateY(-20px);
 }
 
-/* Добавляем стили для разделителя */
 .control-panel-divider {
-  height: 30px;
-  width: 2px;
+  width: 3px;
   background-color: #d1d5db;
   margin: 0 10px;
+  height: 50%;
+  box-sizing: border-box;
 }
 
 .button {
@@ -55,7 +55,7 @@ body {
   border: 2px solid #d1d5db;
   border-radius: 9999px;
   transition: background-color 0.3s var(--md3-ease),
-              transform 0.3s var(--md3-ease),
+              transform 0.1s ease-out,
               box-shadow 0.3s var(--md3-ease);
   display: flex;
   align-items: center;
@@ -66,13 +66,13 @@ body {
 
 .button:hover {
   background-color: rgba(255, 255, 255, 1);
-  transform: scale(1.1);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
+  box-shadow: var(--button-box-shadow-hover);
 }
 
 .button:active {
-  transform: scale(1);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transform: scale(0.95);
+  box-shadow: var(--button-box-shadow-active);
 }
 
 .button[title]:hover::after {
@@ -88,12 +88,8 @@ body {
   white-space: nowrap;
   font-size: 12px;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease-in-out;
-}
-
-.button[title]:hover::after {
   opacity: 1;
+  transition: opacity 0.2s ease-in-out;
 }
 
 #canvas {
@@ -153,7 +149,7 @@ body {
 
 :root {
   --md3-ease: cubic-bezier(0.4, 0.0, 0.2, 1);
-  --button-scale-hover: 1.1;
+  --button-scale-hover: 1.05;
   --button-box-shadow-hover: 0 6px 12px rgba(0, 0, 0, 0.15);
   --button-box-shadow-active: 0 4px 6px rgba(0, 0, 0, 0.1);
 }

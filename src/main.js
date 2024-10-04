@@ -7,8 +7,10 @@ const engine = Engine.create();
 const { world } = engine;
 
 // Улучшение точности физики
-engine.positionIterations = 6; // Уменьшение для более стабильной симуляции
-engine.velocityIterations = 4; // Уменьшение для более стабильной симуляции
+engine.positionIterations = 10; // Увеличение для более точной симуляции
+engine.velocityIterations = 8; // Увеличение для более точной симуляции
+engine.constraintIterations = 4; // Дополнительное улучшение для стабильности связей
+engine.timing.timeScale = 1; // Восстанавливаем стандартную скорость симуляции
 
 // Получение элементов canvas
 const canvas = document.getElementById('canvas');
@@ -23,6 +25,9 @@ const setCanvasSize = () => {
   overlayCanvas.height = window.innerHeight;
 };
 setCanvasSize();
+
+// Получаем доступ к overlayCanvas и его контексту
+const overlayContext = overlayCanvas.getContext('2d');
 
 // Создание renderer
 const render = Render.create({
@@ -43,14 +48,14 @@ Runner.run(runner, engine);
 
 // Функция для создания границ
 const createBoundaries = () => {
-  const thickness = 10;
+  const thickness = 5; // Увеличение толщины для повышения стабильности
   const width = canvas.width;
   const height = canvas.height;
 
   const options = {
     isStatic: true,
-    restitution: 0.2, // Уменьшенная упругость для границ
-    friction: 0.5,    // Увеличенное трение для реалистичных столкновений
+    restitution: 0.1, // Уменьшенная упругость для границ
+    friction: 1.0,    // Увеличенное трение для реалистичных столкновений
     render: { visible: false },
   };
 
@@ -86,7 +91,7 @@ const mouse = Mouse.create(render.canvas);
 const mouseConstraint = MouseConstraint.create(engine, {
   mouse: mouse,
   constraint: {
-    stiffness: 0.2,
+    stiffness: 0.3,
     render: { visible: false },
   },
 });
@@ -116,8 +121,7 @@ function addShape(type, x = null, y = null, width = null, height = null) {
   let shape;
   const options = {
     restitution: 0.2, // Уменьшенная упругость для фигур
-    friction: 0.5,    // Увеличенное трение
-    frictionAir: 0.01, // Увеличенное воздушное трение для более плавного движения
+    friction: 0.7,    // Увеличенное трение
     render: {
       fillStyle: getRandomColor(),
     },
@@ -151,6 +155,7 @@ function addShape(type, x = null, y = null, width = null, height = null) {
 document.getElementById('add-square').addEventListener('click', () => addShape('square'));
 document.getElementById('add-circle').addEventListener('click', () => addShape('circle'));
 document.getElementById('add-triangle').addEventListener('click', () => addShape('triangle'));
+
 document.getElementById('draw-rectangle').addEventListener('click', () => {
   isDrawingRectangle = true;
 
@@ -162,17 +167,28 @@ document.getElementById('draw-rectangle').addEventListener('click', () => {
   overlayCanvas.addEventListener('touchstart', handleTouchStart);
 });
 
-// Переменные для рисования
+document.getElementById('draw-circle').addEventListener('click', () => {
+  isDrawingCircle = true;
+
+  overlayCanvas.style.pointerEvents = 'auto';
+  canvas.style.pointerEvents = 'none';
+  overlayCanvas.style.cursor = 'crosshair';
+
+  overlayCanvas.addEventListener('mousedown', handleCircleMouseDown);
+  overlayCanvas.addEventListener('touchstart', handleCircleTouchStart);
+});
+
+// Переменные для рисования прямоугольников и кругов
 let isDrawingRectangle = false;
+let isDrawingCircle = false;
 let startX = 0;
 let startY = 0;
-const overlayContext = overlayCanvas.getContext('2d');
 
 // Переменные для хранения последних координат касания
 let lastTouchX = 0;
 let lastTouchY = 0;
 
-// Функция обработки нажатия мыши
+// Функция обработки нажатия мыши для прямоугольников
 function handleMouseDown(event) {
   if (!isDrawingRectangle) return;
 
@@ -184,7 +200,19 @@ function handleMouseDown(event) {
   overlayCanvas.addEventListener('mouseup', handleMouseUp);
 }
 
-// Функция обработки начала касания
+// Функция обработки нажатия мыши для кругов
+function handleCircleMouseDown(event) {
+  if (!isDrawingCircle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  startX = event.clientX - rect.left;
+  startY = event.clientY - rect.top;
+
+  overlayCanvas.addEventListener('mousemove', handleCircleMouseMove);
+  overlayCanvas.addEventListener('mouseup', handleCircleMouseUp);
+}
+
+// Функция обработки начала касания для прямоугольников
 function handleTouchStart(event) {
   if (!isDrawingRectangle) return;
   if (event.touches.length > 1) return; // Игнорировать множественные касания
@@ -198,7 +226,21 @@ function handleTouchStart(event) {
   overlayCanvas.addEventListener('touchend', handleTouchEnd);
 }
 
-// Функция обработки движения мыши
+// Функция обработки начала касания для кругов
+function handleCircleTouchStart(event) {
+  if (!isDrawingCircle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  startX = touch.clientX - rect.left;
+  startY = touch.clientY - rect.top;
+
+  overlayCanvas.addEventListener('touchmove', handleCircleTouchMove);
+  overlayCanvas.addEventListener('touchend', handleCircleTouchEnd);
+}
+
+// Функция обработки движения мыши для прямоугольников
 function handleMouseMove(event) {
   if (!isDrawingRectangle) return;
 
@@ -220,7 +262,28 @@ function handleMouseMove(event) {
   overlayContext.stroke();
 }
 
-// Функция обработки движения касания
+// Функция обработки движения мыши для кругов
+function handleCircleMouseMove(event) {
+  if (!isDrawingCircle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  const currentX = event.clientX - rect.left;
+  const currentY = event.clientY - rect.top;
+
+  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Рисование круга
+  overlayContext.beginPath();
+  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
+  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+  overlayContext.lineWidth = 2;
+  overlayContext.stroke();
+}
+
+// Функция обработки движения касания для прямоугольников
 function handleTouchMove(event) {
   if (!isDrawingRectangle) return;
   if (event.touches.length > 1) return; // Игнорировать множественные касания
@@ -249,7 +312,35 @@ function handleTouchMove(event) {
   overlayContext.stroke();
 }
 
-// Функция обработки отпускания мыши
+// Функция обработки движения касания для кругов
+function handleCircleTouchMove(event) {
+  if (!isDrawingCircle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+  event.preventDefault(); // Предотвратить прокрутку страницы
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  const currentX = touch.clientX - rect.left;
+  const currentY = touch.clientY - rect.top;
+
+  // Сохраняем последние координаты касания
+  lastTouchX = currentX;
+  lastTouchY = currentY;
+
+  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Рисование круга
+  overlayContext.beginPath();
+  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
+  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+  overlayContext.lineWidth = 2;
+  overlayContext.stroke();
+}
+
+// Функция обработки отпускания мыши для прямоугольников
 function handleMouseUp(event) {
   if (!isDrawingRectangle) return;
 
@@ -275,10 +366,6 @@ function handleMouseUp(event) {
   // Удаление обработчиков событий
   overlayCanvas.removeEventListener('mousemove', handleMouseMove);
   overlayCanvas.removeEventListener('mouseup', handleMouseUp);
-  overlayCanvas.removeEventListener('mousedown', handleMouseDown);
-  overlayCanvas.removeEventListener('touchmove', handleTouchMove);
-  overlayCanvas.removeEventListener('touchend', handleTouchEnd);
-  overlayCanvas.removeEventListener('touchstart', handleTouchStart);
 
   isDrawingRectangle = false;
 
@@ -287,7 +374,37 @@ function handleMouseUp(event) {
   canvas.style.pointerEvents = 'auto';
 }
 
-// Функция обработки отпускания касания
+// Функция обработки отпускания мыши для кругов
+function handleCircleMouseUp(event) {
+  if (!isDrawingCircle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  const endX = event.clientX - rect.left;
+  const endY = event.clientY - rect.top;
+
+  const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+
+  // Минимальный размер круга
+  if (radius >= 10) {
+    // Добавление круга в мир
+    addShape('circle', startX, startY, radius);
+  }
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Удаление обработчиков событий
+  overlayCanvas.removeEventListener('mousemove', handleCircleMouseMove);
+  overlayCanvas.removeEventListener('mouseup', handleCircleMouseUp);
+
+  isDrawingCircle = false;
+
+  overlayCanvas.style.cursor = 'default';
+  overlayCanvas.style.pointerEvents = 'none';
+  canvas.style.pointerEvents = 'auto';
+}
+
+// Функция обработки отпускания касания для прямоугольников
 function handleTouchEnd(event) {
   if (!isDrawingRectangle) return;
 
@@ -311,18 +428,175 @@ function handleTouchEnd(event) {
   overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
   // Удаление обработчиков событий
-  overlayCanvas.removeEventListener('mousemove', handleMouseMove);
-  overlayCanvas.removeEventListener('mouseup', handleMouseUp);
-  overlayCanvas.removeEventListener('mousedown', handleMouseDown);
   overlayCanvas.removeEventListener('touchmove', handleTouchMove);
   overlayCanvas.removeEventListener('touchend', handleTouchEnd);
-  overlayCanvas.removeEventListener('touchstart', handleTouchStart);
 
   isDrawingRectangle = false;
 
   overlayCanvas.style.cursor = 'default';
   overlayCanvas.style.pointerEvents = 'none';
   canvas.style.pointerEvents = 'auto';
+}
+
+// Функция обработки отпускания касания для кругов
+function handleCircleTouchEnd(event) {
+  if (!isDrawingCircle) return;
+
+  // Используем сохраненные последние координаты касания
+  const endX = lastTouchX;
+  const endY = lastTouchY;
+
+  const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+
+  // Минимальный размер круга
+  if (radius >= 10) {
+    // Добавление круга в мир
+    addShape('circle', startX, startY, radius);
+  }
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Удаление обработчиков событий
+  overlayCanvas.removeEventListener('touchmove', handleCircleTouchMove);
+  overlayCanvas.removeEventListener('touchend', handleCircleTouchEnd);
+
+  isDrawingCircle = false;
+
+  overlayCanvas.style.cursor = 'default';
+  overlayCanvas.style.pointerEvents = 'none';
+  canvas.style.pointerEvents = 'auto';
+}
+
+// Переменные для рисования произвольной формы
+let isDrawingShape = false;
+let isDrawing = false;
+let currentPath = [];
+
+// Обработчик для кнопки "Draw Shape"
+document.getElementById('draw-pencil').addEventListener('click', () => {
+  isDrawingShape = true;
+  overlayCanvas.style.pointerEvents = 'auto';
+  canvas.style.pointerEvents = 'none';
+  overlayCanvas.style.cursor = 'crosshair';
+
+  // Добавляем обработчики событий для рисования формы
+  overlayCanvas.addEventListener('mousedown', handleShapeMouseDown);
+  overlayCanvas.addEventListener('mousemove', handleShapeMouseMove);
+  overlayCanvas.addEventListener('mouseup', handleShapeMouseUp);
+
+  overlayCanvas.addEventListener('touchstart', handleShapeTouchStart);
+  overlayCanvas.addEventListener('touchmove', handleShapeTouchMove);
+  overlayCanvas.addEventListener('touchend', handleShapeTouchEnd);
+});
+
+// Функции для обработки событий мыши
+function handleShapeMouseDown(e) {
+  if (isDrawingShape) {
+    isDrawing = true;
+    currentPath = [];
+    overlayContext.beginPath();
+    overlayContext.moveTo(e.offsetX, e.offsetY);
+    currentPath.push({ x: e.offsetX, y: e.offsetY });
+  }
+}
+
+function handleShapeMouseMove(e) {
+  if (isDrawing && isDrawingShape) {
+    overlayContext.lineTo(e.offsetX, e.offsetY);
+    overlayContext.stroke();
+    currentPath.push({ x: e.offsetX, y: e.offsetY });
+  }
+}
+
+function handleShapeMouseUp(e) {
+  if (isDrawingShape) {
+    isDrawing = false;
+    overlayContext.closePath();
+    if (currentPath.length > 2) {
+      // Добавляем произвольную форму в физический мир
+      const vertices = currentPath.map(point => ({ x: point.x, y: point.y }));
+      const shape = Bodies.fromVertices(vertices[0].x, vertices[0].y, [vertices], {
+        restitution: 0.2,
+        friction: 0.7,
+        render: { fillStyle: getRandomColor() },
+      }, true);
+      if (shape) {
+        World.add(world, shape);
+      }
+    }
+    currentPath = [];
+    resetDrawingMode();
+  }
+}
+
+// Функции для обработки сенсорных событий
+function handleShapeTouchStart(e) {
+  if (isDrawingShape) {
+    isDrawing = true;
+    currentPath = [];
+    const rect = overlayCanvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    overlayContext.beginPath();
+    overlayContext.moveTo(x, y);
+    currentPath.push({ x: x, y: y });
+  }
+}
+
+function handleShapeTouchMove(e) {
+  if (isDrawing && isDrawingShape) {
+    e.preventDefault();
+    const rect = overlayCanvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    overlayContext.lineTo(x, y);
+    overlayContext.stroke();
+    currentPath.push({ x: x, y: y });
+  }
+}
+
+function handleShapeTouchEnd(e) {
+  if (isDrawingShape) {
+    isDrawing = false;
+    overlayContext.closePath();
+    if (currentPath.length > 2) {
+      // Добавляем произвольную форму в физический мир
+      const vertices = currentPath.map(point => ({ x: point.x, y: point.y }));
+      const shape = Bodies.fromVertices(vertices[0].x, vertices[0].y, [vertices], {
+        restitution: 0.2,
+        friction: 0.7,
+        render: { fillStyle: getRandomColor() },
+      }, true);
+      if (shape) {
+        World.add(world, shape);
+      }
+    }
+    currentPath = [];
+    resetDrawingMode();
+  }
+}
+
+// Функция для сброса режима рисования
+function resetDrawingMode() {
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  isDrawingShape = false;
+  overlayCanvas.style.cursor = 'default';
+  overlayCanvas.style.pointerEvents = 'none';
+  canvas.style.pointerEvents = 'auto';
+
+  // Удаляем обработчики событий
+  overlayCanvas.removeEventListener('mousedown', handleShapeMouseDown);
+  overlayCanvas.removeEventListener('mousemove', handleShapeMouseMove);
+  overlayCanvas.removeEventListener('mouseup', handleShapeMouseUp);
+
+  overlayCanvas.removeEventListener('touchstart', handleShapeTouchStart);
+  overlayCanvas.removeEventListener('touchmove', handleShapeTouchMove);
+  overlayCanvas.removeEventListener('touchend', handleShapeTouchEnd);
 }
 
 // Переключение паузы симуляции
@@ -350,161 +624,3 @@ const controlPanel = document.getElementById('control-panel');
 togglePanelButton.addEventListener('click', () => {
   controlPanel.classList.toggle('hidden');
 });
-
-// Add event listener for the "Draw Circle" button
-document.getElementById('draw-circle').addEventListener('click', () => {
-  isDrawingCircle = true;
-
-  overlayCanvas.style.pointerEvents = 'auto';
-  canvas.style.pointerEvents = 'none';
-  overlayCanvas.style.cursor = 'crosshair';
-
-  overlayCanvas.addEventListener('mousedown', handleCircleMouseDown);
-  overlayCanvas.addEventListener('touchstart', handleCircleTouchStart);
-});
-
-// Variables for drawing circles
-let isDrawingCircle = false;
-
-// Function to handle mouse down for drawing circles
-function handleCircleMouseDown(event) {
-  if (!isDrawingCircle) return;
-
-  const rect = overlayCanvas.getBoundingClientRect();
-  startX = event.clientX - rect.left;
-  startY = event.clientY - rect.top;
-
-  overlayCanvas.addEventListener('mousemove', handleCircleMouseMove);
-  overlayCanvas.addEventListener('mouseup', handleCircleMouseUp);
-}
-
-// Function to handle touch start for drawing circles
-function handleCircleTouchStart(event) {
-  if (!isDrawingCircle) return;
-  if (event.touches.length > 1) return; // Ignore multiple touches
-
-  const touch = event.touches[0];
-  const rect = overlayCanvas.getBoundingClientRect();
-  startX = touch.clientX - rect.left;
-  startY = touch.clientY - rect.top;
-
-  overlayCanvas.addEventListener('touchmove', handleCircleTouchMove);
-  overlayCanvas.addEventListener('touchend', handleCircleTouchEnd);
-}
-
-// Function to handle mouse move for drawing circles
-function handleCircleMouseMove(event) {
-  if (!isDrawingCircle) return;
-
-  const rect = overlayCanvas.getBoundingClientRect();
-  const currentX = event.clientX - rect.left;
-  const currentY = event.clientY - rect.top;
-
-  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
-
-  // Clear overlayCanvas
-  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-  // Draw circle
-  overlayContext.beginPath();
-  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
-  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
-  overlayContext.lineWidth = 2;
-  overlayContext.stroke();
-}
-
-// Function to handle touch move for drawing circles
-function handleCircleTouchMove(event) {
-  if (!isDrawingCircle) return;
-  if (event.touches.length > 1) return; // Ignore multiple touches
-  event.preventDefault(); // Prevent page scrolling
-
-  const touch = event.touches[0];
-  const rect = overlayCanvas.getBoundingClientRect();
-  const currentX = touch.clientX - rect.left;
-  const currentY = touch.clientY - rect.top;
-
-  // Save last touch coordinates
-  lastTouchX = currentX;
-  lastTouchY = currentY;
-
-  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
-
-  // Clear overlayCanvas
-  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-  // Draw circle
-  overlayContext.beginPath();
-  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
-  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
-  overlayContext.lineWidth = 2;
-  overlayContext.stroke();
-}
-
-// Function to handle mouse up for drawing circles
-function handleCircleMouseUp(event) {
-  if (!isDrawingCircle) return;
-
-  const rect = overlayCanvas.getBoundingClientRect();
-  const endX = event.clientX - rect.left;
-  const endY = event.clientY - rect.top;
-
-  const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-
-  // Minimum size for circle
-  if (radius >= 10) {
-    // Add circle to the world
-    addShape('circle', startX, startY, radius);
-  }
-
-  // Clear overlayCanvas
-  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-  // Remove event listeners
-  overlayCanvas.removeEventListener('mousemove', handleCircleMouseMove);
-  overlayCanvas.removeEventListener('mouseup', handleCircleMouseUp);
-  overlayCanvas.removeEventListener('mousedown', handleCircleMouseDown);
-  overlayCanvas.removeEventListener('touchmove', handleCircleTouchMove);
-  overlayCanvas.removeEventListener('touchend', handleCircleTouchEnd);
-  overlayCanvas.removeEventListener('touchstart', handleCircleTouchStart);
-
-  isDrawingCircle = false;
-
-  overlayCanvas.style.cursor = 'default';
-  overlayCanvas.style.pointerEvents = 'none';
-  canvas.style.pointerEvents = 'auto';
-}
-
-// Function to handle touch end for drawing circles
-function handleCircleTouchEnd(event) {
-  if (!isDrawingCircle) return;
-
-  // Use saved last touch coordinates
-  const endX = lastTouchX;
-  const endY = lastTouchY;
-
-  const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-
-  // Minimum size for circle
-  if (radius >= 10) {
-    // Add circle to the world
-    addShape('circle', startX, startY, radius);
-  }
-
-  // Clear overlayCanvas
-  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-  // Remove event listeners
-  overlayCanvas.removeEventListener('mousemove', handleCircleMouseMove);
-  overlayCanvas.removeEventListener('mouseup', handleCircleMouseUp);
-  overlayCanvas.removeEventListener('mousedown', handleCircleMouseDown);
-  overlayCanvas.removeEventListener('touchmove', handleCircleTouchMove);
-  overlayCanvas.removeEventListener('touchend', handleCircleTouchEnd);
-  overlayCanvas.removeEventListener('touchstart', handleCircleTouchStart);
-
-  isDrawingCircle = false;
-
-  overlayCanvas.style.cursor = 'default';
-  overlayCanvas.style.pointerEvents = 'none';
-  canvas.style.pointerEvents = 'auto';
-}
