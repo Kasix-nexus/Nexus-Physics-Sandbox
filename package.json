@@ -3,6 +3,7 @@
     "@material/web": "^2.2.0",
     "autoprefixer": "^10.4.20",
     "matter-js": "^0.20.0",
+    "poly-decomp": "^0.3.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13"
   },

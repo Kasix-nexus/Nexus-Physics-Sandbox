@@ -14,10 +14,18 @@
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body class="font-roboto">
-  <!-- Контейнер для панели управления и кнопки menu -->
-  <div class="control-container">
-    <!-- Панель управления -->
-    <div class="control-panel hidden" id="control-panel">
+  <!-- Контейнер для панелей управления и кнопок toggle -->
+  <div class="panels-container">
+    <!-- Левая панель управления с кнопкой Menu -->
+    <div class="control-panel left-panel font-roboto">
+      <button class="button" id="menu-button">Menu</button>
+      <button class="button" id="toggle-panel">
+        <span class="material-symbols-outlined">visibility</span>
+      </button>
+    </div>
+
+    <!-- Правая панель управления с остальными кнопками -->
+    <div class="control-panel right-panel hidden-panel" id="control-panel">
       <!-- Draw функции -->
       <button class="button" id="draw-rectangle" title="Draw Rectangle">
         <span class="material-symbols-outlined">rectangle</span>
@@ -41,19 +49,15 @@
       <button class="button" id="add-triangle" title="Add Triangle">
         <span class="material-symbols-outlined">change_history</span>
       </button>
+      <button class="button" id="add-polygon" title="Add Polygon">
+        <span class="material-symbols-outlined">hexagon</span>
+      </button>
 
       <div class="control-panel-divider"></div>
       
       <!-- Управление симуляцией -->
       <button class="button" id="toggle-simulation" title="Pause">
         <span class="material-symbols-outlined" id="toggle-icon">pause</span>
-      </button>
-    </div>
-    
-    <!-- Кнопка Toggle Panel -->
-    <div class="toggle-button-wrapper">
-      <button id="toggle-panel" class="toggle-button">
-        <span class="material-symbols-outlined">menu</span>
       </button>
     </div>
   </div>
@@ -71,10 +75,9 @@
   <script>
     // Функция для добавления эффекта движения кнопок при наведении
     function addButtonHoverEffect() {
-      const buttons = document.querySelectorAll('.control-panel .button');
+      const buttons = document.querySelectorAll('.control-panel .button, .left-panel .button');
 
       buttons.forEach(button => {
-        // Обработчик движения курсора над кнопкой
         button.addEventListener('mousemove', (e) => {
           const rect = button.getBoundingClientRect();
           const mouseX = e.clientX - rect.left;
@@ -86,34 +89,31 @@
           const deltaX = mouseX - centerX;
           const deltaY = mouseY - centerY;
 
-          // Нормализация расстояния
           const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
           const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
-          const moveAmount = 10; // Максимальное смещение в пикселях
+          const moveAmount = 10;
 
-          // Расчёт смещения
           const translateX = (deltaX / maxDistance) * moveAmount;
           const translateY = (deltaY / maxDistance) * moveAmount;
 
           button.style.transform = `translate(${translateX}px, ${translateY}px) scale(1.1)`;
         });
 
-        // Обработчик ухода курсора с кнопки
         button.addEventListener('mouseleave', () => {
-          button.style.transform = `translate(0px, 0px) scale(1)`; // Сохраняем масштаб при наведении
-        });
-
-        // Обработчик ухода курсора полностью с кнопки (удаление всех трансформаций)
-        button.addEventListener('mouseout', () => {
           button.style.transform = `translate(0px, 0px) scale(1)`;
         });
       });
     }
 
-    // Вызовите функцию после загрузки контента
     window.addEventListener('DOMContentLoaded', () => {
       addButtonHoverEffect();
 
+      const menuButton = document.getElementById('menu-button');
+      if (menuButton) {
+        menuButton.addEventListener('click', () => {
+          console.log('SSBzdGFuZCByZWFkeSBhdCB5b3VyIGNvbW1hbmQsCkEgc2ltcGxlIHByZXNzLCBhIG1lc3NhZ2XigJlzIGxhbmQuClNvb24gSSdsbCBncm93IHRvIG9mZmVyIG1vcmUsClNldHRpbmdzLCBvcHRpb25zLCBhbmQgbXVjaCBtb3JlLgpXaGF0IGFtIEk/');
+        });
+      }
     });
   </script>
 </body>

@@ -1,16 +1,28 @@
-// main.js
+import {
+  Engine,
+  Render,
+  Runner,
+  Bodies,
+  Common,
+  Composite,
+  Mouse,
+  MouseConstraint,
+  Vertices,
+} from 'matter-js';
+import decomp from 'poly-decomp';
 
-import { Engine, Render, Runner, Bodies, World, Mouse, MouseConstraint } from 'matter-js';
+// Устанавливаем 'poly-decomp' для Matter.js
+Common.setDecomp(decomp);
 
 // Создание engine и world
 const engine = Engine.create();
 const { world } = engine;
 
 // Улучшение точности физики
-engine.positionIterations = 10; // Увеличение для более точной симуляции
-engine.velocityIterations = 8; // Увеличение для более точной симуляции
-engine.constraintIterations = 4; // Дополнительное улучшение для стабильности связей
-engine.timing.timeScale = 1; // Восстанавливаем стандартную скорость симуляции
+engine.positionIterations = 6;
+engine.velocityIterations = 4;
+engine.constraintIterations = 2;
+engine.timing.timeScale = 1;
 
 // Получение элементов canvas
 const canvas = document.getElementById('canvas');
@@ -48,27 +60,27 @@ Runner.run(runner, engine);
 
 // Функция для создания границ
 const createBoundaries = () => {
-  const thickness = 5; // Увеличение толщины для повышения стабильности
+  const thickness = 50;
   const width = canvas.width;
   const height = canvas.height;
 
   const options = {
     isStatic: true,
-    restitution: 0.1, // Уменьшенная упругость для границ
-    friction: 1.0,    // Увеличенное трение для реалистичных столкновений
+    restitution: 0.1,
+    friction: 1.0,
     render: { visible: false },
   };
 
   return [
-    Bodies.rectangle(width / 2, thickness / 2, width, thickness, options),
-    Bodies.rectangle(width / 2, height - thickness / 2, width, thickness, options),
-    Bodies.rectangle(thickness / 2, height / 2, thickness, height, options),
-    Bodies.rectangle(width - thickness / 2, height / 2, thickness, height, options),
+    Bodies.rectangle(width / 2, -thickness / 2, width * 2, thickness, options), // Верхняя граница
+    Bodies.rectangle(width / 2, height + thickness / 2, width * 2, thickness, options), // Нижняя граница
+    Bodies.rectangle(-thickness / 2, height / 2, thickness, height * 2, options), // Левая граница
+    Bodies.rectangle(width + thickness / 2, height / 2, thickness, height * 2, options), // Правая граница
   ];
 };
 
 let boundaries = createBoundaries();
-World.add(world, boundaries);
+Composite.add(world, boundaries);
 
 // Обработка изменения размера окна
 window.addEventListener('resize', () => {
@@ -81,9 +93,9 @@ window.addEventListener('resize', () => {
   render.canvas.height = canvas.height;
 
   // Обновление границ
-  World.remove(world, boundaries);
+  Composite.remove(world, boundaries);
   boundaries = createBoundaries();
-  World.add(world, boundaries);
+  Composite.add(world, boundaries);
 });
 
 // Добавление контроля мыши
@@ -91,11 +103,11 @@ const mouse = Mouse.create(render.canvas);
 const mouseConstraint = MouseConstraint.create(engine, {
   mouse: mouse,
   constraint: {
-    stiffness: 0.3,
+    stiffness: 0.2,
     render: { visible: false },
   },
 });
-World.add(world, mouseConstraint);
+Composite.add(world, mouseConstraint);
 
 // Функция для получения случайного цвета
 const getRandomColor = () => {
@@ -107,12 +119,13 @@ const getRandomColor = () => {
 const MAX_BODIES = 200;
 
 // Функция для добавления фигур
-function addShape(type, x = null, y = null, width = null, height = null) {
+function addShape(type, x = null, y = null, size = null) {
   // Проверка на максимальное количество тел
-  if (world.bodies.length >= MAX_BODIES) {
-    // Удаляем самые старые тела, кроме границ и мышиного контрола
-    const bodiesToRemove = world.bodies.filter(body => !body.isStatic).slice(0, world.bodies.length - MAX_BODIES + 1);
-    World.remove(world, bodiesToRemove);
+  if (Composite.allBodies(world).length >= MAX_BODIES) {
+    const bodiesToRemove = Composite.allBodies(world)
+      .filter((body) => !body.isStatic && body !== mouseConstraint.body)
+      .slice(0, Composite.allBodies(world).length - MAX_BODIES + 1);
+    Composite.remove(world, bodiesToRemove);
   }
 
   if (x === null) x = Math.random() * canvas.width;
@@ -120,8 +133,8 @@ function addShape(type, x = null, y = null, width = null, height = null) {
 
   let shape;
   const options = {
-    restitution: 0.2, // Уменьшенная упругость для фигур
-    friction: 0.7,    // Увеличенное трение
+    restitution: 0.2,
+    friction: 0.7,
     render: {
       fillStyle: getRandomColor(),
     },
@@ -129,32 +142,38 @@ function addShape(type, x = null, y = null, width = null, height = null) {
 
   switch (type) {
     case 'square':
-      const size = width || 80;
-      shape = Bodies.rectangle(x, y, size, size, options);
+      const sizeSquare = size || 80;
+      shape = Bodies.rectangle(x, y, sizeSquare, sizeSquare, options);
       break;
     case 'rectangle':
-      const rectWidth = width || 80;
-      const rectHeight = height || 60;
+      const rectWidth = size || 80;
+      const rectHeight = size || 60;
       shape = Bodies.rectangle(x, y, rectWidth, rectHeight, options);
       break;
     case 'circle':
-      const radius = width || 40;
+      const radius = size || 40;
       shape = Bodies.circle(x, y, radius, options);
       break;
     case 'triangle':
-      shape = Bodies.polygon(x, y, 3, width || 50, options);
+      shape = Bodies.polygon(x, y, 3, size || 50, options);
+      break;
+    case 'polygon':
+      const sides = 6;
+      const radiusHex = size || 40;
+      shape = Bodies.polygon(x, y, sides, radiusHex, options);
       break;
     default:
       return;
   }
 
-  World.add(world, shape);
+  Composite.add(world, shape);
 }
 
 // Обработчики событий для кнопок
 document.getElementById('add-square').addEventListener('click', () => addShape('square'));
 document.getElementById('add-circle').addEventListener('click', () => addShape('circle'));
 document.getElementById('add-triangle').addEventListener('click', () => addShape('triangle'));
+document.getElementById('add-polygon').addEventListener('click', () => addShape('polygon'));
 
 document.getElementById('draw-rectangle').addEventListener('click', () => {
   isDrawingRectangle = true;
@@ -188,7 +207,7 @@ let startY = 0;
 let lastTouchX = 0;
 let lastTouchY = 0;
 
-// Функция обработки нажатия мыши для прямоугольников
+// Функции для рисования прямоугольников
 function handleMouseDown(event) {
   if (!isDrawingRectangle) return;
 
@@ -200,47 +219,6 @@ function handleMouseDown(event) {
   overlayCanvas.addEventListener('mouseup', handleMouseUp);
 }
 
-// Функция обработки нажатия мыши для кругов
-function handleCircleMouseDown(event) {
-  if (!isDrawingCircle) return;
-
-  const rect = overlayCanvas.getBoundingClientRect();
-  startX = event.clientX - rect.left;
-  startY = event.clientY - rect.top;
-
-  overlayCanvas.addEventListener('mousemove', handleCircleMouseMove);
-  overlayCanvas.addEventListener('mouseup', handleCircleMouseUp);
-}
-
-// Функция обработки начала касания для прямоугольников
-function handleTouchStart(event) {
-  if (!isDrawingRectangle) return;
-  if (event.touches.length > 1) return; // Игнорировать множественные касания
-
-  const touch = event.touches[0];
-  const rect = overlayCanvas.getBoundingClientRect();
-  startX = touch.clientX - rect.left;
-  startY = touch.clientY - rect.top;
-
-  overlayCanvas.addEventListener('touchmove', handleTouchMove);
-  overlayCanvas.addEventListener('touchend', handleTouchEnd);
-}
-
-// Функция обработки начала касания для кругов
-function handleCircleTouchStart(event) {
-  if (!isDrawingCircle) return;
-  if (event.touches.length > 1) return; // Игнорировать множественные касания
-
-  const touch = event.touches[0];
-  const rect = overlayCanvas.getBoundingClientRect();
-  startX = touch.clientX - rect.left;
-  startY = touch.clientY - rect.top;
-
-  overlayCanvas.addEventListener('touchmove', handleCircleTouchMove);
-  overlayCanvas.addEventListener('touchend', handleCircleTouchEnd);
-}
-
-// Функция обработки движения мыши для прямоугольников
 function handleMouseMove(event) {
   if (!isDrawingRectangle) return;
 
@@ -262,85 +240,6 @@ function handleMouseMove(event) {
   overlayContext.stroke();
 }
 
-// Функция обработки движения мыши для кругов
-function handleCircleMouseMove(event) {
-  if (!isDrawingCircle) return;
-
-  const rect = overlayCanvas.getBoundingClientRect();
-  const currentX = event.clientX - rect.left;
-  const currentY = event.clientY - rect.top;
-
-  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
-
-  // Очистка overlayCanvas
-  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-  // Рисование круга
-  overlayContext.beginPath();
-  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
-  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
-  overlayContext.lineWidth = 2;
-  overlayContext.stroke();
-}
-
-// Функция обработки движения касания для прямоугольников
-function handleTouchMove(event) {
-  if (!isDrawingRectangle) return;
-  if (event.touches.length > 1) return; // Игнорировать множественные касания
-  event.preventDefault(); // Предотвратить прокрутку страницы
-
-  const touch = event.touches[0];
-  const rect = overlayCanvas.getBoundingClientRect();
-  const currentX = touch.clientX - rect.left;
-  const currentY = touch.clientY - rect.top;
-
-  // Сохраняем последние координаты касания
-  lastTouchX = currentX;
-  lastTouchY = currentY;
-
-  const width = currentX - startX;
-  const height = currentY - startY;
-
-  // Очистка overlayCanvas
-  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-  // Рисование прямоугольника
-  overlayContext.beginPath();
-  overlayContext.rect(startX, startY, width, height);
-  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
-  overlayContext.lineWidth = 2;
-  overlayContext.stroke();
-}
-
-// Функция обработки движения касания для кругов
-function handleCircleTouchMove(event) {
-  if (!isDrawingCircle) return;
-  if (event.touches.length > 1) return; // Игнорировать множественные касания
-  event.preventDefault(); // Предотвратить прокрутку страницы
-
-  const touch = event.touches[0];
-  const rect = overlayCanvas.getBoundingClientRect();
-  const currentX = touch.clientX - rect.left;
-  const currentY = touch.clientY - rect.top;
-
-  // Сохраняем последние координаты касания
-  lastTouchX = currentX;
-  lastTouchY = currentY;
-
-  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
-
-  // Очистка overlayCanvas
-  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-  // Рисование круга
-  overlayContext.beginPath();
-  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
-  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
-  overlayContext.lineWidth = 2;
-  overlayContext.stroke();
-}
-
-// Функция обработки отпускания мыши для прямоугольников
 function handleMouseUp(event) {
   if (!isDrawingRectangle) return;
 
@@ -374,7 +273,38 @@ function handleMouseUp(event) {
   canvas.style.pointerEvents = 'auto';
 }
 
-// Функция обработки отпускания мыши для кругов
+// Функции для рисования кругов
+function handleCircleMouseDown(event) {
+  if (!isDrawingCircle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  startX = event.clientX - rect.left;
+  startY = event.clientY - rect.top;
+
+  overlayCanvas.addEventListener('mousemove', handleCircleMouseMove);
+  overlayCanvas.addEventListener('mouseup', handleCircleMouseUp);
+}
+
+function handleCircleMouseMove(event) {
+  if (!isDrawingCircle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  const currentX = event.clientX - rect.left;
+  const currentY = event.clientY - rect.top;
+
+  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Рисование круга
+  overlayContext.beginPath();
+  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
+  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+  overlayContext.lineWidth = 2;
+  overlayContext.stroke();
+}
+
 function handleCircleMouseUp(event) {
   if (!isDrawingCircle) return;
 
@@ -404,7 +334,48 @@ function handleCircleMouseUp(event) {
   canvas.style.pointerEvents = 'auto';
 }
 
-// Функция обработки отпускания касания для прямоугольников
+// Функции для обработки касания при рисовании прямоугольников
+function handleTouchStart(event) {
+  if (!isDrawingRectangle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  startX = touch.clientX - rect.left;
+  startY = touch.clientY - rect.top;
+
+  overlayCanvas.addEventListener('touchmove', handleTouchMove);
+  overlayCanvas.addEventListener('touchend', handleTouchEnd);
+}
+
+function handleTouchMove(event) {
+  if (!isDrawingRectangle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+  event.preventDefault(); // Предотвратить прокрутку страницы
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  const currentX = touch.clientX - rect.left;
+  const currentY = touch.clientY - rect.top;
+
+  // Сохраняем последние координаты касания
+  lastTouchX = currentX;
+  lastTouchY = currentY;
+
+  const width = currentX - startX;
+  const height = currentY - startY;
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Рисование прямоугольника
+  overlayContext.beginPath();
+  overlayContext.rect(startX, startY, width, height);
+  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+  overlayContext.lineWidth = 2;
+  overlayContext.stroke();
+}
+
 function handleTouchEnd(event) {
   if (!isDrawingRectangle) return;
 
@@ -438,7 +409,47 @@ function handleTouchEnd(event) {
   canvas.style.pointerEvents = 'auto';
 }
 
-// Функция обработки отпускания касания для кругов
+// Функции для обработки касания при рисовании кругов
+function handleCircleTouchStart(event) {
+  if (!isDrawingCircle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  startX = touch.clientX - rect.left;
+  startY = touch.clientY - rect.top;
+
+  overlayCanvas.addEventListener('touchmove', handleCircleTouchMove);
+  overlayCanvas.addEventListener('touchend', handleCircleTouchEnd);
+}
+
+function handleCircleTouchMove(event) {
+  if (!isDrawingCircle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+  event.preventDefault(); // Предотвратить прокрутку страницы
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  const currentX = touch.clientX - rect.left;
+  const currentY = touch.clientY - rect.top;
+
+  // Сохраняем последние координаты касания
+  lastTouchX = currentX;
+  lastTouchY = currentY;
+
+  const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Рисование круга
+  overlayContext.beginPath();
+  overlayContext.arc(startX, startY, radius, 0, Math.PI * 2);
+  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+  overlayContext.lineWidth = 2;
+  overlayContext.stroke();
+}
+
 function handleCircleTouchEnd(event) {
   if (!isDrawingCircle) return;
 
@@ -490,7 +501,7 @@ document.getElementById('draw-pencil').addEventListener('click', () => {
   overlayCanvas.addEventListener('touchend', handleShapeTouchEnd);
 });
 
-// Функции для обработки событий мыши
+// Функции для обработки событий мыши при рисовании произвольной формы
 function handleShapeMouseDown(e) {
   if (isDrawingShape) {
     isDrawing = true;
@@ -515,14 +526,18 @@ function handleShapeMouseUp(e) {
     overlayContext.closePath();
     if (currentPath.length > 2) {
       // Добавляем произвольную форму в физический мир
-      const vertices = currentPath.map(point => ({ x: point.x, y: point.y }));
-      const shape = Bodies.fromVertices(vertices[0].x, vertices[0].y, [vertices], {
+      const vertices = currentPath.map((point) => ({ x: point.x, y: point.y }));
+      const center = Vertices.centre(vertices);
+      const translatedVertices = Vertices.translate(vertices, { x: -center.x, y: -center.y }, false);
+
+      const shape = Bodies.fromVertices(center.x, center.y, [translatedVertices], {
         restitution: 0.2,
         friction: 0.7,
         render: { fillStyle: getRandomColor() },
       }, true);
+
       if (shape) {
-        World.add(world, shape);
+        Composite.add(world, shape);
       }
     }
     currentPath = [];
@@ -530,7 +545,7 @@ function handleShapeMouseUp(e) {
   }
 }
 
-// Функции для обработки сенсорных событий
+// Функции для обработки сенсорных событий при рисовании произвольной формы
 function handleShapeTouchStart(e) {
   if (isDrawingShape) {
     isDrawing = true;
@@ -564,14 +579,18 @@ function handleShapeTouchEnd(e) {
     overlayContext.closePath();
     if (currentPath.length > 2) {
       // Добавляем произвольную форму в физический мир
-      const vertices = currentPath.map(point => ({ x: point.x, y: point.y }));
-      const shape = Bodies.fromVertices(vertices[0].x, vertices[0].y, [vertices], {
+      const vertices = currentPath.map((point) => ({ x: point.x, y: point.y }));
+      const center = Vertices.centre(vertices);
+      const translatedVertices = Vertices.translate(vertices, { x: -center.x, y: -center.y }, false);
+
+      const shape = Bodies.fromVertices(center.x, center.y, [translatedVertices], {
         restitution: 0.2,
         friction: 0.7,
         render: { fillStyle: getRandomColor() },
       }, true);
+
       if (shape) {
-        World.add(world, shape);
+        Composite.add(world, shape);
       }
     }
     currentPath = [];
@@ -622,5 +641,5 @@ const togglePanelButton = document.getElementById('toggle-panel');
 const controlPanel = document.getElementById('control-panel');
 
 togglePanelButton.addEventListener('click', () => {
-  controlPanel.classList.toggle('hidden');
+  controlPanel.classList.toggle('hidden-panel');
 });
