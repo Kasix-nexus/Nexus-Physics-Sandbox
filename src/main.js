@@ -119,7 +119,7 @@ const getRandomColor = () => {
 const MAX_BODIES = 200;
 
 // Функция для добавления фигур
-function addShape(type, x = null, y = null, size = null) {
+function addShape(type, x = null, y = null, width = null, height = null) {
   // Проверка на максимальное количество тел
   if (Composite.allBodies(world).length >= MAX_BODIES) {
     const bodiesToRemove = Composite.allBodies(world)
@@ -142,24 +142,24 @@ function addShape(type, x = null, y = null, size = null) {
 
   switch (type) {
     case 'square':
-      const sizeSquare = size || 80;
+      const sizeSquare = width || 80;
       shape = Bodies.rectangle(x, y, sizeSquare, sizeSquare, options);
       break;
     case 'rectangle':
-      const rectWidth = size || 80;
-      const rectHeight = size || 60;
+      const rectWidth = width || 80;
+      const rectHeight = height || 60;
       shape = Bodies.rectangle(x, y, rectWidth, rectHeight, options);
       break;
     case 'circle':
-      const radius = size || 40;
+      const radius = width || 40;
       shape = Bodies.circle(x, y, radius, options);
       break;
     case 'triangle':
-      shape = Bodies.polygon(x, y, 3, size || 50, options);
+      shape = Bodies.polygon(x, y, 3, width || 50, options);
       break;
     case 'polygon':
       const sides = 6;
-      const radiusHex = size || 40;
+      const radiusHex = width || 40;
       shape = Bodies.polygon(x, y, sides, radiusHex, options);
       break;
     default:
@@ -643,3 +643,207 @@ const controlPanel = document.getElementById('control-panel');
 togglePanelButton.addEventListener('click', () => {
   controlPanel.classList.toggle('hidden-panel');
 });
+
+const actionMenu = document.getElementById('action-menu');
+const menuButton = document.getElementById('menu-button');
+
+menuButton.addEventListener('click', () => {
+  actionMenu.classList.toggle('visible');
+});
+
+// Add event listener for the "Reset Scene" button
+document.getElementById('reset-scene').addEventListener('click', () => {
+  // Logic to reset the scene
+  Composite.clear(world, false, true);
+  boundaries = createBoundaries();
+  Composite.add(world, boundaries);
+
+  // Re-add the mouse constraint to the world
+  Composite.add(world, mouseConstraint);
+});
+
+// Добавление обработчика для кнопки "Load Mod"
+document.getElementById('load-mod').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.js';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    // Выполнение содержимого загруженного файла
+                    eval(event.target.result);
+                    console.log('Mod loaded successfully!');
+                } catch (error) {
+                    console.error('Error loading mod:', error);
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+    input.click();
+});
+
+let previewImage = null;
+
+// Обработчик для кнопки "Add.."
+document.getElementById('add-item').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,.svg';
+  input.onchange = e => {
+      const file = e.target.files[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const dataUrl = event.target.result;
+              if (file.type.includes('svg')) {
+                  previewSvg(dataUrl);
+              } else {
+                  previewImage = new Image();
+                  previewImage.src = dataUrl;
+                  previewImage.className = 'preview-image';
+                  document.body.appendChild(previewImage);
+                  showSizeMenu(); // Панель показывается после загрузки изображения
+                  updatePreviewSize();
+              }
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+  input.click();
+});
+function showSizeMenu() {
+  const sizeMenu = document.getElementById('size-menu');
+  sizeMenu.classList.remove('hidden');
+}
+
+function hideSizeMenu() {
+  const sizeMenu = document.getElementById('size-menu');
+  sizeMenu.classList.add('hidden');
+}
+
+document.getElementById('size-input').addEventListener('input', updatePreviewSize);
+
+function updatePreviewSize() {
+  const sizeMultiplier = parseFloat(document.getElementById('size-input').value);
+  if (previewImage) {
+    previewImage.style.width = `${previewImage.naturalWidth * sizeMultiplier}px`;
+    previewImage.style.height = `${previewImage.naturalHeight * sizeMultiplier}px`;
+  }
+}
+
+document.getElementById('add-to-scene').addEventListener('click', () => {
+  const sizeMultiplier = parseFloat(document.getElementById('size-input').value);
+  if (previewImage) {
+      addImageToScene(previewImage.src, sizeMultiplier);
+      document.body.removeChild(previewImage);
+      previewImage = null;
+  }
+  hideSizeMenu(); // Hide the size menu after adding the image
+});
+
+
+function addImageToScene(dataUrl, sizeMultiplier) {
+  const img = new Image();
+  img.src = dataUrl;
+  img.onload = () => {
+    const width = img.width * sizeMultiplier;
+    const height = img.height * sizeMultiplier;
+    const texture = Render.create({
+      canvas: document.createElement('canvas'),
+      engine: engine,
+      options: {
+        width: width,
+        height: height,
+        wireframes: false,
+      }
+    });
+    texture.context.drawImage(img, 0, 0, width, height);
+    const shape = Bodies.rectangle(canvas.width / 2, canvas.height / 2, width, height, {
+      render: {
+        sprite: {
+          texture: texture.canvas.toDataURL(),
+          xScale: 1,
+          yScale: 1
+        }
+      }
+    });
+    Composite.add(world, shape);
+  };
+}
+
+// Функция для добавления SVG на сцену
+function addSvgToScene(dataUrl) {
+  fetch(dataUrl)
+    .then(response => response.text())
+    .then(svgText => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, 'image/svg+xml');
+      
+      // Извлекаем все пути из SVG
+      const paths = Array.from(doc.querySelectorAll('path'));
+
+      // Проверяем, нашли ли мы хотя бы один путь
+      if (paths.length > 0) {
+        const verticesList = paths.map(path => {
+          const pathData = path.getAttribute('d');
+          return Vertices.fromPath(pathData);
+        });
+
+        const combinedVertices = verticesList.flat();
+
+        // Вычисляем центр масс
+        const center = Vertices.centre(combinedVertices);
+
+        // Перемещаем вершины к центру координат
+        const translatedVertices = Vertices.translate(combinedVertices, { x: -center.x, y: -center.y }, false);
+
+        // Создаем тело на основе вершин и добавляем в физический мир
+        const shape = Bodies.fromVertices(center.x + canvas.width / 2, center.y + canvas.height / 2, [translatedVertices], {
+          restitution: 0.2,
+          friction: 0.7,
+          render: { fillStyle: getRandomColor() },
+        }, true);
+
+        if (shape) {
+          Composite.add(world, shape);
+        }
+      } else {
+        console.error('No path found in the SVG.');
+      }
+    })
+    .catch(error => console.error('Error loading SVG:', error));
+}
+function previewSvg(dataUrl) {
+  fetch(dataUrl)
+    .then(response => response.text())
+    .then(svgText => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, 'image/svg+xml');
+      const svgElement = doc.documentElement;
+      svgElement.style.position = 'fixed';
+      svgElement.style.top = '50%';
+      svgElement.style.left = '50%';
+      svgElement.style.transform = 'translate(-50%, -50%)';
+      svgElement.style.opacity = '0.5';
+      document.body.appendChild(svgElement);
+      showSizeMenu();
+    })
+    .catch(error => console.error('Error loading SVG:', error));
+}
+
+// Example conversion function for <rect> to <path>
+function convertRectToPath(rectElement) {
+  const x = parseFloat(rectElement.getAttribute('x')) || 0;
+  const y = parseFloat(rectElement.getAttribute('y')) || 0;
+  const width = parseFloat(rectElement.getAttribute('width'));
+  const height = parseFloat(rectElement.getAttribute('height'));
+  const d = `M${x},${y} h${width} v${height} h-${width} Z`;
+  const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  pathElement.setAttribute('d', d);
+  return pathElement;
+}
+
