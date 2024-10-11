@@ -8,19 +8,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
   
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body class="font-roboto">
   <!-- Контейнер для панелей управления и кнопок toggle -->
+  <div id="blur-overlay"></div>
   <div class="panels-container">
     <!-- Левая панель управления с кнопкой Menu -->
     <div class="control-panel left-panel font-roboto">
       <button class="button" id="menu-button">Menu</button>
       <button class="button" id="toggle-panel">
-        <span class="material-symbols-outlined">menu</span> <!-- Изменено с 'visibility' на 'menu' -->
+        <span class="material-symbols-outlined">menu</span> 
       </button>
     </div>
 
@@ -33,26 +33,23 @@
       <button class="button" id="draw-circle" title="Draw Circle">
         <span class="material-symbols-outlined">circle</span>
       </button>
+      <button class="button" id="draw-triangle" title="Draw Triangle">
+        <span class="material-symbols-outlined">change_history</span>
+      </button>
+      <button class="button" id="draw-polygon" title="Draw Polygon">
+        <span class="material-symbols-outlined">hexagon</span>
+      </button>
       <button class="button" id="draw-pencil" title="Draw Shape">
         <span class="material-symbols-outlined">edit</span>
       </button>
+      <button class="button" id="draw-knife" title="Cut">
+        <span class="material-symbols-outlined">content_cut</span>
+      </button>
+
       
       <div class="control-panel-divider"></div>
       
-      <!-- Add функции -->
-      <button class="button" id="add-square" title="Add Square">
-        <span class="material-symbols-outlined">square</span>
-      </button>
-      <button class="button" id="add-circle" title="Add Circle">
-        <span class="material-symbols-outlined">circle</span>
-      </button>
-      <button class="button" id="add-triangle" title="Add Triangle">
-        <span class="material-symbols-outlined">change_history</span>
-      </button>
-      <button class="button" id="add-polygon" title="Add Polygon">
-        <span class="material-symbols-outlined">hexagon</span>
-      </button>
-      
+      <!-- Кнопка для добавления изображений -->
       <button class="button" id="add-item" title="Add..">
         <span class="material-symbols-outlined">add</span>
       </button>
@@ -116,12 +113,25 @@
   
   <!-- Добавление кнопки "Load Mod" в action-menu -->
   <div class="action-menu hidden-panel" id="action-menu">
-    <button class="button" id="reset-scene">Reset Scene</button>
+    <button class="button" id="reset-scene">Clear Up</button>
     <button class="button" id="load-mod">Load Mod</button> 
-    <button class="button" id="session-settings">Session Settings</button>
+    <button class="button" id="open-console">Console</button>
+    <button class="button" id="session-settings">Settings</button>
     <button class="button" id="main-menu">Main Menu</button>
   </div>
   
+  <div id="console-overlay" class="hidden">
+    <div id="console-window">
+      <div id="console-logs"></div>
+      <div id="console-input">
+        <input type="text" id="console-command" placeholder="Enter command...">
+        <button class="button" id="console-execute">
+          <span class="material-symbols-outlined">send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Меню для настройки размера изображения -->
   <div id="size-menu" class="size-menu hidden">
     <input type="number" id="size-input" placeholder="Enter size multiplier" min="0.1" step="0.1" value="1">

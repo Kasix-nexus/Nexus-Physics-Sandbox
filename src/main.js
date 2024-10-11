@@ -10,13 +10,14 @@ import {
   Vertices,
 } from 'matter-js';
 import decomp from 'poly-decomp';
+import { executeCommand } from './console.js';
 
 // Устанавливаем 'poly-decomp' для Matter.js
 Common.setDecomp(decomp);
 
 // Создание engine и world
 const engine = Engine.create();
-const { world } = engine;
+const world = engine.world; // Экспортируемая переменная
 
 // Улучшение точности физики
 engine.positionIterations = 6;
@@ -98,16 +99,18 @@ window.addEventListener('resize', () => {
   Composite.add(world, boundaries);
 });
 
-// Добавление контроля мыши
 const mouse = Mouse.create(render.canvas);
 const mouseConstraint = MouseConstraint.create(engine, {
-  mouse: mouse,
-  constraint: {
-    stiffness: 0.2,
-    render: { visible: false },
-  },
+    mouse: mouse,
+    constraint: {
+        stiffness: 0.2,
+        render: { visible: false },
+    },
 });
+
+// Добавляем изначально в мир
 Composite.add(world, mouseConstraint);
+
 
 // Функция для получения случайного цвета
 const getRandomColor = () => {
@@ -168,12 +171,6 @@ function addShape(type, x = null, y = null, width = null, height = null) {
 
   Composite.add(world, shape);
 }
-
-// Обработчики событий для кнопок
-document.getElementById('add-square').addEventListener('click', () => addShape('square'));
-document.getElementById('add-circle').addEventListener('click', () => addShape('circle'));
-document.getElementById('add-triangle').addEventListener('click', () => addShape('triangle'));
-document.getElementById('add-polygon').addEventListener('click', () => addShape('polygon'));
 
 document.getElementById('draw-rectangle').addEventListener('click', () => {
   isDrawingRectangle = true;
@@ -304,6 +301,8 @@ function handleCircleMouseMove(event) {
   overlayContext.lineWidth = 2;
   overlayContext.stroke();
 }
+
+
 
 function handleCircleMouseUp(event) {
   if (!isDrawingCircle) return;
@@ -688,33 +687,38 @@ document.getElementById('load-mod').addEventListener('click', () => {
 
 let previewImage = null;
 
-// Обработчик для кнопки "Add.."
+// Изменим обработчик для кнопки "Add.."
 document.getElementById('add-item').addEventListener('click', () => {
+  activateBlur(); // Активируем размытие
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*,.svg';
   input.onchange = e => {
-      const file = e.target.files[0];
-      if (file) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-              const dataUrl = event.target.result;
-              if (file.type.includes('svg')) {
-                  previewSvg(dataUrl);
-              } else {
-                  previewImage = new Image();
-                  previewImage.src = dataUrl;
-                  previewImage.className = 'preview-image';
-                  document.body.appendChild(previewImage);
-                  showSizeMenu(); // Панель показывается после загрузки изображения
-                  updatePreviewSize();
-              }
-          };
-          reader.readAsDataURL(file);
-      }
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        deactivateBlur(); // Деактивируем размытие после загрузки файла
+        const dataUrl = event.target.result;
+        if (file.type.includes('svg')) {
+          previewSvg(dataUrl);
+        } else {
+          previewImage = new Image();
+          previewImage.src = dataUrl;
+          previewImage.className = 'preview-image';
+          document.body.appendChild(previewImage);
+          showSizeMenu();
+          updatePreviewSize();
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      deactivateBlur(); // Деактивируем размытие, если файл не был выбран
+    }
   };
   input.click();
 });
+
 function showSizeMenu() {
   const sizeMenu = document.getElementById('size-menu');
   sizeMenu.classList.remove('hidden');
@@ -745,29 +749,18 @@ document.getElementById('add-to-scene').addEventListener('click', () => {
   hideSizeMenu(); // Hide the size menu after adding the image
 });
 
-
 function addImageToScene(dataUrl, sizeMultiplier) {
   const img = new Image();
   img.src = dataUrl;
   img.onload = () => {
     const width = img.width * sizeMultiplier;
     const height = img.height * sizeMultiplier;
-    const texture = Render.create({
-      canvas: document.createElement('canvas'),
-      engine: engine,
-      options: {
-        width: width,
-        height: height,
-        wireframes: false,
-      }
-    });
-    texture.context.drawImage(img, 0, 0, width, height);
     const shape = Bodies.rectangle(canvas.width / 2, canvas.height / 2, width, height, {
       render: {
         sprite: {
-          texture: texture.canvas.toDataURL(),
-          xScale: 1,
-          yScale: 1
+          texture: dataUrl,
+          xScale: sizeMultiplier,
+          yScale: sizeMultiplier
         }
       }
     });
@@ -817,6 +810,7 @@ function addSvgToScene(dataUrl) {
     })
     .catch(error => console.error('Error loading SVG:', error));
 }
+
 function previewSvg(dataUrl) {
   fetch(dataUrl)
     .then(response => response.text())
@@ -846,4 +840,473 @@ function convertRectToPath(rectElement) {
   pathElement.setAttribute('d', d);
   return pathElement;
 }
+
+// Обработчик для кнопки "Draw Triangle"
+document.getElementById('draw-triangle').addEventListener('click', () => {
+  isDrawingTriangle = true;
+
+  overlayCanvas.style.pointerEvents = 'auto';
+  canvas.style.pointerEvents = 'none';
+  overlayCanvas.style.cursor = 'crosshair';
+
+  overlayCanvas.addEventListener('mousedown', handleTriangleMouseDown);
+  overlayCanvas.addEventListener('touchstart', handleTriangleTouchStart);
+});
+
+// Переменные для рисования треугольников
+let isDrawingTriangle = false;
+let triangleStartX = 0;
+let triangleStartY = 0;
+
+// Функции для рисования треугольников
+function handleTriangleMouseDown(event) {
+  if (!isDrawingTriangle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  triangleStartX = event.clientX - rect.left;
+  triangleStartY = event.clientY - rect.top;
+
+  overlayCanvas.addEventListener('mousemove', handleTriangleMouseMove);
+  overlayCanvas.addEventListener('mouseup', handleTriangleMouseUp);
+}
+
+function handleTriangleMouseMove(event) {
+  if (!isDrawingTriangle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  const currentX = event.clientX - rect.left;
+  const currentY = event.clientY - rect.top;
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Рисование треугольника
+  overlayContext.beginPath();
+  overlayContext.moveTo(triangleStartX, triangleStartY);
+  overlayContext.lineTo(currentX, currentY);
+  overlayContext.lineTo(triangleStartX, currentY);
+  overlayContext.closePath();
+  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+  overlayContext.lineWidth = 2;
+  overlayContext.stroke();
+}
+
+function handleTriangleMouseUp(event) {
+  if (!isDrawingTriangle) return;
+
+  const rect = overlayCanvas.getBoundingClientRect();
+  const endX = event.clientX - rect.left;
+  const endY = event.clientY - rect.top;
+
+  // Минимальный размер треугольника
+  if (Math.abs(endX - triangleStartX) >= 20 && Math.abs(endY - triangleStartY) >= 20) {
+    // Добавление треугольника в мир
+    const vertices = [
+      { x: triangleStartX, y: triangleStartY },
+      { x: endX, y: endY },
+      { x: triangleStartX, y: endY }
+    ];
+    const shape = Bodies.fromVertices(triangleStartX, triangleStartY, vertices, {
+      render: {
+        fillStyle: getRandomColor(),
+      }
+    });
+    Composite.add(world, shape);
+  }
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Удаление обработчиков событий
+  overlayCanvas.removeEventListener('mousemove', handleTriangleMouseMove);
+  overlayCanvas.removeEventListener('mouseup', handleTriangleMouseUp);
+
+  isDrawingTriangle = false;
+
+  overlayCanvas.style.cursor = 'default';
+  overlayCanvas.style.pointerEvents = 'none';
+  canvas.style.pointerEvents = 'auto';
+}
+
+// Функции для обработки касания при рисовании треугольников
+function handleTriangleTouchStart(event) {
+  if (!isDrawingTriangle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  triangleStartX = touch.clientX - rect.left;
+  triangleStartY = touch.clientY - rect.top;
+
+  overlayCanvas.addEventListener('touchmove', handleTriangleTouchMove);
+  overlayCanvas.addEventListener('touchend', handleTriangleTouchEnd);
+}
+
+function handleTriangleTouchMove(event) {
+  if (!isDrawingTriangle) return;
+  if (event.touches.length > 1) return; // Игнорировать множественные касания
+  event.preventDefault(); // Предотвратить прокрутку страницы
+
+  const touch = event.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  const currentX = touch.clientX - rect.left;
+  const currentY = touch.clientY - rect.top;
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Рисование треугольника
+  overlayContext.beginPath();
+  overlayContext.moveTo(triangleStartX, triangleStartY);
+  overlayContext.lineTo(currentX, currentY);
+  overlayContext.lineTo(triangleStartX, currentY);
+  overlayContext.closePath();
+  overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+  overlayContext.lineWidth = 2;
+  overlayContext.stroke();
+}
+
+function handleTriangleTouchEnd(event) {
+  if (!isDrawingTriangle) return;
+
+  const endX = lastTouchX;
+  const endY = lastTouchY;
+
+  // Минимальный размер треугольника
+  if (Math.abs(endX - triangleStartX) >= 20 && Math.abs(endY - triangleStartY) >= 20) {
+    // Добавление треугольника в мир
+    const vertices = [
+      { x: triangleStartX, y: triangleStartY },
+      { x: endX, y: endY },
+      { x: triangleStartX, y: endY }
+    ];
+    const shape = Bodies.fromVertices(triangleStartX, triangleStartY, vertices, {
+      render: {
+        fillStyle: getRandomColor(),
+      }
+    });
+    Composite.add(world, shape);
+  }
+
+  // Очистка overlayCanvas
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Удаление обработчиков событий
+  overlayCanvas.removeEventListener('touchmove', handleTriangleTouchMove);
+  overlayCanvas.removeEventListener('touchend', handleTriangleTouchEnd);
+
+  isDrawingTriangle = false;
+
+  overlayCanvas.style.cursor = 'default';
+  overlayCanvas.style.pointerEvents = 'none';
+  canvas.style.pointerEvents = 'auto';
+}
+
+// Функция для активации размытия
+function activateBlur() {
+  const blurOverlay = document.getElementById('blur-overlay');
+  blurOverlay.classList.add('active');
+}
+
+// Функция для деактивации размытия
+function deactivateBlur() {
+  const blurOverlay = document.getElementById('blur-overlay');
+  blurOverlay.classList.remove('active');
+}
+
+let isDrawingPolygon = false;
+let polygonPoints = [];
+
+document.getElementById('draw-polygon').addEventListener('click', () => {
+  isDrawingPolygon = true;
+  polygonPoints = [];
+  overlayCanvas.style.pointerEvents = 'auto';
+  canvas.style.pointerEvents = 'none';
+  overlayCanvas.style.cursor = 'crosshair';
+
+  overlayCanvas.addEventListener('click', handlePolygonClick);
+  document.addEventListener('keydown', handlePolygonKeyDown);
+});
+
+function handlePolygonClick(event) {
+  const rect = overlayCanvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  polygonPoints.push({ x, y });
+
+  // Отображение точки
+  const point = document.createElement('div');
+  point.className = 'polygon-point';
+  point.style.left = `${x}px`;
+  point.style.top = `${y}px`;
+  document.body.appendChild(point);
+
+  // Рисование линий
+  if (polygonPoints.length > 1) {
+    overlayContext.beginPath();
+    overlayContext.moveTo(polygonPoints[polygonPoints.length - 2].x, polygonPoints[polygonPoints.length - 2].y);
+    overlayContext.lineTo(x, y);
+    overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+    overlayContext.lineWidth = 2;
+    overlayContext.stroke();
+  }
+}
+
+function handlePolygonKeyDown(event) {
+  if (event.key === 'Enter' && polygonPoints.length >= 3) {
+    finishPolygon();
+  } else if (event.key === 'Escape') {
+    cancelPolygon();
+  }
+}
+
+function finishPolygon() {
+  if (polygonPoints.length >= 3) {
+    // Замкнуть полигон
+    overlayContext.beginPath();
+    overlayContext.moveTo(polygonPoints[polygonPoints.length - 1].x, polygonPoints[polygonPoints.length - 1].y);
+    overlayContext.lineTo(polygonPoints[0].x, polygonPoints[0].y);
+    overlayContext.strokeStyle = 'rgba(0,0,0,0.5)';
+    overlayContext.lineWidth = 2;
+    overlayContext.stroke();
+
+    // Добавить полигон в мир Matter.js
+    const shape = Bodies.fromVertices(
+      polygonPoints[0].x,
+      polygonPoints[0].y,
+      [polygonPoints],
+      {
+        render: {
+          fillStyle: getRandomColor(),
+        }
+      }
+    );
+    Composite.add(world, shape);
+  }
+  resetPolygonDrawing();
+}
+
+function cancelPolygon() {
+  resetPolygonDrawing();
+}
+
+function resetPolygonDrawing() {
+  isDrawingPolygon = false;
+  polygonPoints = [];
+  overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  document.querySelectorAll('.polygon-point').forEach(point => point.remove());
+  overlayCanvas.removeEventListener('click', handlePolygonClick);
+  document.removeEventListener('keydown', handlePolygonKeyDown);
+  overlayCanvas.style.cursor = 'default';
+  overlayCanvas.style.pointerEvents = 'none';
+  canvas.style.pointerEvents = 'auto';
+}
+
+// Console functionality
+const consoleOverlay = document.getElementById('console-overlay');
+const consoleLogsElement = document.getElementById('console-logs');
+const consoleCommandInput = document.getElementById('console-command');
+const consoleExecuteButton = document.getElementById('console-execute');
+
+document.getElementById('open-console').addEventListener('click', () => {
+  consoleOverlay.classList.remove('hidden');
+  activateBlur();
+});
+
+consoleOverlay.addEventListener('click', (e) => {
+  if (e.target === consoleOverlay) {
+    consoleOverlay.classList.add('hidden');
+    deactivateBlur();
+  }
+});
+
+function logToConsole(message) {
+  const logEntry = document.createElement('div');
+  logEntry.textContent = message;
+  consoleLogsElement.appendChild(logEntry);
+  consoleLogsElement.scrollTop = consoleLogsElement.scrollHeight;
+}
+
+consoleExecuteButton.addEventListener('click', () => {
+  const command = consoleCommandInput.value.trim();
+  if (command) {
+    logToConsole(`> ${command}`);
+    const result = executeCommand(command);
+    logToConsole(result);
+    consoleCommandInput.value = '';
+  }
+});
+
+consoleCommandInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    consoleExecuteButton.click();
+  }
+});
+
+
+// Add event listener for the knife tool button
+document.getElementById('draw-knife').addEventListener('click', () => {
+  isUsingKnife = true;
+  overlayCanvas.style.pointerEvents = 'auto';
+  canvas.style.pointerEvents = 'none';
+  overlayCanvas.style.cursor = 'crosshair';
+
+  // Add event listeners for knife tool
+  overlayCanvas.addEventListener('mousedown', handleKnifeMouseDown);
+  overlayCanvas.addEventListener('mousemove', handleKnifeMouseMove);
+  overlayCanvas.addEventListener('mouseup', handleKnifeMouseUp);
+});
+
+let isUsingKnife = false;
+let knifePath = [];
+
+function handleKnifeMouseDown(e) {
+  if (isUsingKnife) {
+    knifePath = [];
+    overlayContext.beginPath();
+    overlayContext.moveTo(e.offsetX, e.offsetY);
+    knifePath.push({ x: e.offsetX, y: e.offsetY });
+  }
+}
+
+function handleKnifeMouseMove(e) {
+  if (isUsingKnife && knifePath.length > 0) {
+    overlayContext.lineTo(e.offsetX, e.offsetY);
+    overlayContext.stroke();
+    knifePath.push({ x: e.offsetX, y: e.offsetY });
+  }
+}
+
+function handleKnifeMouseUp() {
+  if (isUsingKnife && knifePath.length > 1) {
+    // Implement cutting logic here based on the knife path
+    cutObjects(knifePath);
+
+    // Reset knife tool and drawing mode
+    isUsingKnife = false;
+    knifePath = [];
+    resetDrawingMode();
+  }
+}
+
+function cutObjects(path) {
+  const bodies = Composite.allBodies(world);
+  const newBodies = [];
+
+  bodies.forEach(body => {
+    if (body.isStatic) return; // Пропускаем статические тела
+
+    const vertices = body.vertices;
+    const intersections = getIntersections(path, vertices);
+
+    if (intersections.length >= 2) {
+      const [part1, part2] = splitBody(body, intersections);
+      
+      if (part1 && part2) {
+        newBodies.push(part1, part2);
+        Composite.remove(world, body);
+      }
+    }
+  });
+
+  Composite.add(world, newBodies);
+}
+
+function getIntersections(path, vertices) {
+  const intersections = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    const lineStart = path[i];
+    const lineEnd = path[i + 1];
+
+    for (let j = 0; j < vertices.length; j++) {
+      const vertexStart = vertices[j];
+      const vertexEnd = vertices[(j + 1) % vertices.length];
+
+      const intersection = lineIntersection(lineStart, lineEnd, vertexStart, vertexEnd);
+      if (intersection) {
+        intersections.push(intersection);
+      }
+    }
+  }
+  return intersections;
+}
+
+function lineIntersection(p1, p2, p3, p4) {
+  const x1 = p1.x, y1 = p1.y;
+  const x2 = p2.x, y2 = p2.y;
+  const x3 = p3.x, y3 = p3.y;
+  const x4 = p4.x, y4 = p4.y;
+
+  const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+  if (denom === 0) return null;
+
+  const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+  const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+
+  if (ua < 0 || ua > 1 || ub < 0 || ub > 1) return null;
+
+  const x = x1 + ua * (x2 - x1);
+  const y = y1 + ua * (y2 - y1);
+
+  return { x, y };
+}
+
+function splitBody(body, intersections) {
+  const vertices = body.vertices;
+  const part1Vertices = [];
+  const part2Vertices = [];
+  let currentPart = part1Vertices;
+
+  for (let i = 0; i < vertices.length; i++) {
+    currentPart.push(vertices[i]);
+
+    const nextIndex = (i + 1) % vertices.length;
+    const currentEdge = { start: vertices[i], end: vertices[nextIndex] };
+
+    for (const intersection of intersections) {
+      if (isPointOnLineSegment(currentEdge.start, currentEdge.end, intersection)) {
+        currentPart.push(intersection);
+        currentPart = currentPart === part1Vertices ? part2Vertices : part1Vertices;
+        currentPart.push(intersection);
+        break;
+      }
+    }
+  }
+
+  if (part1Vertices.length < 3 || part2Vertices.length < 3) return [null, null];
+
+  const options = {
+    render: {
+      fillStyle: body.render.fillStyle,
+      strokeStyle: body.render.strokeStyle,
+      lineWidth: body.render.lineWidth
+    }
+  };
+
+  const part1 = Bodies.fromVertices(body.position.x, body.position.y, [part1Vertices], options);
+  const part2 = Bodies.fromVertices(body.position.x, body.position.y, [part2Vertices], options);
+
+  // Копирование свойств исходного тела
+  [part1, part2].forEach(part => {
+    part.friction = body.friction;
+    part.frictionAir = body.frictionAir;
+    part.frictionStatic = body.frictionStatic;
+    part.restitution = body.restitution;
+    part.density = body.density;
+  });
+
+  return [part1, part2];
+}
+
+function isPointOnLineSegment(start, end, point) {
+  const d1 = Math.sqrt(Math.pow(point.x - start.x, 2) + Math.pow(point.y - start.y, 2));
+  const d2 = Math.sqrt(Math.pow(point.x - end.x, 2) + Math.pow(point.y - end.y, 2));
+  const lineLength = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+  const buffer = 0.1;
+  return Math.abs(d1 + d2 - lineLength) < buffer;
+}
+
+
+export { world, mouseConstraint }; // Экспорт переменной world
 
